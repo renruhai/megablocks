@@ -32,7 +32,7 @@ class SortOp(torch.autograd.Function):
         x_out = torch.empty_like(x)
         iota_out = torch.empty_like(x)
         #ops.sort(x, end_bit, x_out, iota_out)
-        torch.sort(x, end_bit, x_out, iota_out)
+        torch.sort(x)
         return (x_out, iota_out)
 
 
