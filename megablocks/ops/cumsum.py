@@ -29,9 +29,14 @@ class ExclusiveCumsumOp(torch.autograd.Function):
         out = torch.empty_like(x)
         ops.exclusive_cumsum(x, dim, out)
         return out
+    
+def NpuExclusiveCumsumOp(x: torch.Tensor, dim: int):
+    return (torch.cumsum(x, dim=1) - 1) * x
 
-
-exclusive_cumsum = ExclusiveCumsumOp.apply
+if hasattr(torch, "npu"):
+    exclusive_cumsum = NpuExclusiveCumsumOp
+else:
+    exclusive_cumsum = ExclusiveCumsumOp.apply
 
 
 class InclusiveCumsumOp(torch.autograd.Function):
@@ -46,6 +51,11 @@ class InclusiveCumsumOp(torch.autograd.Function):
         out = torch.empty_like(x)
         ops.inclusive_cumsum(x, dim, out)
         return out
+    
+def NpuInclusiveCumsumOp(x: torch.Tensor, dim: int):
+    return torch.cumsum(x, dim=1)
 
-
-inclusive_cumsum = InclusiveCumsumOp.apply
+if hasattr(torch, "npu"):
+    exclusive_cumsum = NpuInclusiveCumsumOp
+else:
+    inclusive_cumsum = InclusiveCumsumOp.apply

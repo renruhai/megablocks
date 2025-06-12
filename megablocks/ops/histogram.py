@@ -23,5 +23,9 @@ class HistogramOp(torch.autograd.Function):
     def forward(ctx: Any, x: torch.Tensor, max_val: float):
         return ops.histogram(x, max_val)
 
-
-histogram = HistogramOp.apply
+def NpuHistogramOp(x: torch.Tensor, max_val: float):
+    return torch.stack([torch.histc(y, max_val, 0, max_val - 1) for y in torch.split(x, 1)])
+if hasattr(torch, "npu"):
+    histogram = NpuHistogramOp
+else:
+    histogram = HistogramOp.apply
