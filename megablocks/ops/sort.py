@@ -31,9 +31,16 @@ class SortOp(torch.autograd.Function):
             end_bit = _BITS_FOR_DTYPE[x.dtype]
         x_out = torch.empty_like(x)
         iota_out = torch.empty_like(x)
-        #ops.sort(x, end_bit, x_out, iota_out)
-        torch.sort(x, end_bit, x_out, iota_out)
+        ops.sort(x, end_bit, x_out, iota_out)
+        #torch.sort(x, end_bit, x_out, iota_out)
         return (x_out, iota_out)
-
-
-sort = SortOp.apply
+    
+def NpuSortOp(x: torch.Tensor):
+    x_out = torch.empty_like(x)
+    iota_out = torch.empty_like(x)
+    x_out,iota_out=torch.sort(x)
+    return (x_out,iota_out)
+if hasattr(torch, "npu"):
+    sort = NpuSortOp
+else:
+    sort = SortOp.apply
