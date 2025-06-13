@@ -1,2 +1,2 @@
-stanford-stk>=0.0.6
-triton==2.1.0
+# stanford-stk>=0.0.6
+# triton==2.1.0

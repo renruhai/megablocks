@@ -7,55 +7,51 @@ from typing import Any
 # extensions. Otherwise libc10.so cannot be found.
 import torch
 
-# Wrap this in a try-block with better error message and
-# instructions for building the c++ operations.
-try:
-    import megablocks_ops as ops  # type: ignore
-except ModuleNotFoundError as e:
-    raise ModuleNotFoundError("No module named 'megablocks_ops'.") from e
+if not hasattr(torch, "npu"):
+    # Wrap this in a try-block with better error message and
+    # instructions for building the c++ operations.
+    try:
+        import megablocks_ops as ops  # type: ignore
+    except ModuleNotFoundError as e:
+        raise ModuleNotFoundError("No module named 'megablocks_ops'.") from e
 
+    # Autograd wrappers for cumsum kernels.
+    # NOTE: Does not support gradients.
+    class ExclusiveCumsumOp(torch.autograd.Function):
 
-# Autograd wrappers for cumsum kernels.
-# NOTE: Does not support gradients.
-class ExclusiveCumsumOp(torch.autograd.Function):
-
-    @staticmethod
-    def forward(ctx: Any, x: torch.Tensor, dim: int):
-        if len(x.size()) == 1:
-            x = x.view([1, -1])
+        @staticmethod
+        def forward(ctx: Any, x: torch.Tensor, dim: int):
+            if len(x.size()) == 1:
+                x = x.view([1, -1])
+                out = torch.empty_like(x)
+                ops.exclusive_cumsum(x, 1, out)
+                return out.squeeze()
             out = torch.empty_like(x)
-            ops.exclusive_cumsum(x, 1, out)
-            return out.squeeze()
-        out = torch.empty_like(x)
-        ops.exclusive_cumsum(x, dim, out)
-        return out
-    
-def NpuExclusiveCumsumOp(x: torch.Tensor, dim: int):
-    return (torch.cumsum(x, dim=1) - 1) * x
+            ops.exclusive_cumsum(x, dim, out)
+            return out
+        
+    class InclusiveCumsumOp(torch.autograd.Function):
 
-if hasattr(torch, "npu"):
-    exclusive_cumsum = NpuExclusiveCumsumOp
-else:
-    exclusive_cumsum = ExclusiveCumsumOp.apply
-
-
-class InclusiveCumsumOp(torch.autograd.Function):
-
-    @staticmethod
-    def forward(ctx: Any, x: torch.Tensor, dim: int) -> torch.Tensor:
-        if len(x.size()) == 1:
-            x = x.view([1, -1])
+        @staticmethod
+        def forward(ctx: Any, x: torch.Tensor, dim: int) -> torch.Tensor:
+            if len(x.size()) == 1:
+                x = x.view([1, -1])
+                out = torch.empty_like(x)
+                ops.inclusive_cumsum(x, 1, out)
+                return out.squeeze()
             out = torch.empty_like(x)
-            ops.inclusive_cumsum(x, 1, out)
-            return out.squeeze()
-        out = torch.empty_like(x)
-        ops.inclusive_cumsum(x, dim, out)
-        return out
+            ops.inclusive_cumsum(x, dim, out)
+            return out
     
-def NpuInclusiveCumsumOp(x: torch.Tensor, dim: int):
-    return torch.cumsum(x, dim=1)
-
-if hasattr(torch, "npu"):
-    exclusive_cumsum = NpuInclusiveCumsumOp
-else:
     inclusive_cumsum = InclusiveCumsumOp.apply
+    exclusive_cumsum = ExclusiveCumsumOp.apply
+    
+else:
+    def NpuExclusiveCumsumOp(x: torch.Tensor, dim: int):
+        return (torch.cumsum(x, dim=1) - 1) * x
+    
+    def NpuInclusiveCumsumOp(x: torch.Tensor, dim: int):
+        return torch.cumsum(x, dim=1)
+
+    exclusive_cumsum = NpuInclusiveCumsumOp
+    exclusive_cumsum = NpuExclusiveCumsumOp
